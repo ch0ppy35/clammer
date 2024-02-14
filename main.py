@@ -13,7 +13,7 @@ CLAM_DIR = os.getenv("CLAM_DIR", "./clamav")
 
 class HTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
-        pass
+        l.info({"message": format % args})
 
 
 def init_logger() -> None:
@@ -56,9 +56,13 @@ if __name__ == "__main__":
         l.info({"message": "Starting web server"})
         try:
             os.chdir(CLAM_DIR)
-            with socketserver.TCPServer(
-                ("0.0.0.0", WEB_PORT), HTTPRequestHandler
-            ) as httpd:
+
+            class ThreadedHTTPServer(
+                socketserver.ThreadingMixIn, socketserver.TCPServer
+            ):
+                pass
+
+            with ThreadedHTTPServer(("0.0.0.0", WEB_PORT), HTTPRequestHandler) as httpd:
                 l.info(
                     {
                         "message": f"Now serving on port {WEB_PORT}",
