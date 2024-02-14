@@ -10,6 +10,12 @@ UPDATE_FREQUENCY = 12
 WEB_PORT = 8080
 CLAM_DIR = os.getenv("CLAM_DIR", "./clamav")
 
+
+class HTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+
 def init_logger() -> None:
     l.basicConfig(level=l.INFO)
     json_handler = l.StreamHandler()
@@ -51,7 +57,7 @@ if __name__ == "__main__":
         try:
             os.chdir(CLAM_DIR)
             with socketserver.TCPServer(
-                ("0.0.0.0", WEB_PORT), http.server.SimpleHTTPRequestHandler
+                ("0.0.0.0", WEB_PORT), HTTPRequestHandler
             ) as httpd:
                 l.info(
                     {
