@@ -19,8 +19,9 @@ spec:
         app: clammer
     spec:
       containers:
-      - name: clammer-container
-        image: clammer:latest
+      - name: clammer
+        image: ghcr.io/ch0ppy35/clammer:main
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         volumeMounts:
@@ -47,7 +48,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 4Gi
+      storage: 2Gi
 ---
 apiVersion: v1
 kind: Service

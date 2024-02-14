@@ -10,13 +10,14 @@ UPDATE_FREQUENCY = 12
 WEB_PORT = 8080
 CLAM_DIR = os.getenv("CLAM_DIR", "./clamav")
 
-l.basicConfig(level=l.INFO)
-json_handler = l.StreamHandler()
-json_formatter = l.Formatter(
-    '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": %(message)s}'
-)
-json_handler.setFormatter(json_formatter)
-l.getLogger().handlers = [json_handler]
+def init_logger() -> None:
+    l.basicConfig(level=l.INFO)
+    json_handler = l.StreamHandler()
+    json_formatter = l.Formatter(
+        '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": %(message)s}'
+    )
+    json_handler.setFormatter(json_formatter)
+    l.getLogger().handlers = [json_handler]
 
 
 def update_databases() -> None:
@@ -42,6 +43,7 @@ def start_updating_thread() -> None:
 
 
 if __name__ == "__main__":
+    init_logger()
     l.info({"message": f"CLAM_DIR is set to {CLAM_DIR}"})
     try:
         start_updating_thread()
