@@ -34,9 +34,21 @@ spec:
           requests:
             memory: "256Mi"
             cpu: "100m"
-  volumes:
-  - name: clamav-volume
-    emptyDir: {}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: clamav-volume
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

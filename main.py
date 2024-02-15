@@ -3,17 +3,38 @@ import logging as l
 import time
 import threading
 import http.server
-import socketserver
+import socketserver as s
 import os
 
-UPDATE_FREQUENCY = 12
+UPDATE_FREQUENCY_HOURS = 12
 WEB_PORT = 8080
+HEALTHZ_PORT = 8081
 CLAM_DIR = os.getenv("CLAM_DIR", "./clamav")
+
+first_update_completed = False
+update_lock = threading.Lock()
 
 
 class HTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         l.info({"message": format % args})
+
+    def do_GET(self):
+        if self.path == "/healthz":
+            if first_update_completed:
+                self.send_response(200)
+                self.send_header("Content-type", "text/plain")
+                self.end_headers()
+                self.wfile.write(bytes("OK", "utf-8"))
+            else:
+                self.send_response(503)
+            self.end_headers()
+        else:
+            super().do_GET()
+
+
+class ThreadedHTTPServer(s.ThreadingMixIn, s.TCPServer):
+    pass
 
 
 def init_logger() -> None:
@@ -27,19 +48,23 @@ def init_logger() -> None:
 
 
 def update_databases() -> None:
+    global first_update_completed
     c = CVDUpdate(db_dir=CLAM_DIR)
     err = c.db_update()
     if err > 0:
         l.warning(
             {"error_count": err, "message": "Something went wrong while updating"}
         )
+    else:
+        with update_lock:
+            first_update_completed = True
 
 
 def keep_updating() -> None:
     while True:
         l.info({"message": "Running update"})
         update_databases()
-        time.sleep(60 * 60 * UPDATE_FREQUENCY)
+        time.sleep(60 * 60 * UPDATE_FREQUENCY_HOURS)
 
 
 def start_updating_thread() -> None:
@@ -57,11 +82,6 @@ if __name__ == "__main__":
         try:
             os.chdir(CLAM_DIR)
 
-            class ThreadedHTTPServer(
-                socketserver.ThreadingMixIn, socketserver.TCPServer
-            ):
-                pass
-
             with ThreadedHTTPServer(("0.0.0.0", WEB_PORT), HTTPRequestHandler) as httpd:
                 l.info(
                     {
@@ -69,7 +89,22 @@ if __name__ == "__main__":
                         "web": f"http://0.0.0.0:{WEB_PORT}/",
                     }
                 )
-                httpd.serve_forever()
+
+                with ThreadedHTTPServer(
+                    ("0.0.0.0", HEALTHZ_PORT), HTTPRequestHandler
+                ) as probe_httpd:
+                    l.info(
+                        {
+                            "message": f"Now serving on port {HEALTHZ_PORT}",
+                            "probe": f"http://0.0.0.0:{HEALTHZ_PORT}/healthz",
+                        }
+                    )
+
+                    threading.Thread(target=httpd.serve_forever).start()
+                    threading.Thread(target=probe_httpd.serve_forever).start()
+
+                    threading.Event().wait()
+
         except Exception as e:
             l.error({"message": f"Failed bringing up the web server - {e}"})
     except KeyboardInterrupt:
