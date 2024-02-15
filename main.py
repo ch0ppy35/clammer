@@ -57,7 +57,11 @@ def update_databases() -> None:
         )
     else:
         with update_lock:
-            first_update_completed = True
+            if not first_update_completed:
+                l.info({"message": "Initial update completed"})
+                first_update_completed = True
+            else:
+                l.info({"message": "Database update completed"})
 
 
 def keep_updating() -> None:
